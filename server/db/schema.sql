@@ -38,11 +38,22 @@ ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS last_name TEXT;
 ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE supplier_directory ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE supplier_directory
+  ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS supplier_directory_name_lower_unique
   ON supplier_directory (LOWER(name));
 CREATE UNIQUE INDEX IF NOT EXISTS supplier_directory_email_lower_unique
   ON supplier_directory (LOWER(email)) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS supplier_directory_user_id_unique
+  ON supplier_directory (user_id) WHERE user_id IS NOT NULL;
+
+UPDATE supplier_directory d
+SET user_id = u.id
+FROM users u
+WHERE u.role = 'supplier'
+  AND LOWER(d.email) = LOWER(u.email)
+  AND d.user_id IS NULL;
 
 CREATE TABLE IF NOT EXISTS samples (
   id BIGSERIAL PRIMARY KEY,
@@ -66,6 +77,14 @@ ALTER TABLE samples ADD COLUMN IF NOT EXISTS supplier_name TEXT;
 ALTER TABLE samples ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE samples DROP CONSTRAINT IF EXISTS sample_availability_date_required;
 ALTER TABLE samples DROP CONSTRAINT IF EXISTS sample_return_date_required;
+
+UPDATE samples s
+SET supplier_id = d.user_id, supplier_name = NULL, updated_at = NOW()
+FROM supplier_directory d
+WHERE s.supplier_id IS NULL
+  AND s.supplier_name IS NOT NULL
+  AND d.user_id IS NOT NULL
+  AND LOWER(s.supplier_name) = LOWER(d.name);
 
 CREATE UNIQUE INDEX IF NOT EXISTS samples_reference_lower_unique ON samples (LOWER(reference));
 CREATE INDEX IF NOT EXISTS samples_supplier_id_idx ON samples (supplier_id);

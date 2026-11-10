@@ -55,6 +55,20 @@ function presentDate(value) {
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 }
 
+async function linkSupplierDirectory(userId, email) {
+  await pool.query(
+    `WITH linked AS (
+       UPDATE supplier_directory SET user_id = $1
+       WHERE LOWER(email) = LOWER($2) AND (user_id IS NULL OR user_id = $1)
+       RETURNING name
+     )
+     UPDATE samples s SET supplier_id = $1, supplier_name = NULL, updated_at = NOW()
+     FROM linked
+     WHERE s.supplier_id IS NULL AND LOWER(s.supplier_name) = LOWER(linked.name)`,
+    [userId, email]
+  );
+}
+
 function presentUser(row) {
   return {
     id: row.id,
@@ -244,6 +258,7 @@ app.post("/api/auth/register", async (request, response, next) => {
        accountType === "supplier" ? phone : null]
     );
     const user = presentUser(result.rows[0]);
+    if (role === "supplier") await linkSupplierDirectory(user.id, email);
     const token = jwt.sign(
       { sub: String(user.id), role: user.role, email: user.email },
       process.env.JWT_SECRET,
@@ -300,7 +315,7 @@ app.get("/api/users/suppliers", requireAuth, requireRole("manager"), async (_req
        UNION ALL
        SELECT id, email, name AS company, name, first_name, last_name, phone,
               'directory'::text AS kind
-       FROM supplier_directory
+      FROM supplier_directory WHERE user_id IS NULL
        ORDER BY company NULLS LAST, email NULLS LAST, name NULLS LAST`
     );
     return response.json({ suppliers: result.rows });
@@ -324,6 +339,16 @@ app.post("/api/suppliers/directory", requireAuth, requireRole("manager"), async 
     }
     if (!validInternationalPhone(phone)) {
       return response.status(400).json({ error: "Enter a valid international phone number, including the country code (e.g. +33 6 12 34 56 78)." });
+    }
+    const account = await pool.query(
+      `UPDATE users SET company = $1, first_name = $2, last_name = $3, phone = $4
+       WHERE LOWER(email) = LOWER($5) AND role = 'supplier'
+       RETURNING id, email, company, first_name, last_name, phone`,
+      [name, firstName, lastName, phone, email]
+    );
+    if (account.rowCount) {
+      await linkSupplierDirectory(account.rows[0].id, email);
+      return response.status(200).json({ supplier: { ...account.rows[0], name, kind: "account" } });
     }
     const result = await pool.query(
       `INSERT INTO supplier_directory (name, first_name, last_name, email, phone)
@@ -376,11 +401,25 @@ app.patch("/api/suppliers/directory/:id", requireAuth, requireRole("manager"), a
        WHERE id = $6 RETURNING id, name, first_name, last_name, email, phone`,
       [name, firstName, lastName, email, phone, id]
     );
+    const linkedUser = await client.query(
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND role = 'supplier'",
+      [email]
+    );
+    if (linkedUser.rowCount) {
+      await client.query("UPDATE supplier_directory SET user_id = $1 WHERE id = $2", [linkedUser.rows[0].id, id]);
+    }
     if (current.rows[0].name !== name) {
       await client.query(
         `UPDATE samples SET supplier_name = $1, updated_at = NOW()
          WHERE supplier_id IS NULL AND LOWER(supplier_name) = LOWER($2)`,
         [name, current.rows[0].name]
+      );
+    }
+    if (linkedUser.rowCount) {
+      await client.query(
+        `UPDATE samples SET supplier_id = $1, supplier_name = NULL, updated_at = NOW()
+         WHERE supplier_id IS NULL AND LOWER(supplier_name) = LOWER($2)`,
+        [linkedUser.rows[0].id, name]
       );
     }
     await client.query("COMMIT");
@@ -479,8 +518,8 @@ app.get("/api/samples/history", requireAuth, requireRole("manager"), async (_req
 app.post("/api/samples", requireAuth, requireRole("manager"), async (request, response, next) => {
   try {
     const reference = String(request.body.reference || "").trim();
-    const supplierId = request.body.supplierId ? Number(request.body.supplierId) : null;
-    const supplierName = String(request.body.supplierName || "").trim() || null;
+    let supplierId = request.body.supplierId ? Number(request.body.supplierId) : null;
+    let supplierName = String(request.body.supplierName || "").trim() || null;
     if (!reference || reference.length > 100) {
       return response.status(400).json({ error: "Reference must contain between 1 and 100 characters." });
     }
@@ -500,10 +539,14 @@ app.post("/api/samples", requireAuth, requireRole("manager"), async (request, re
         const supplierResult = await client.query(
           `INSERT INTO supplier_directory (name) VALUES ($1)
            ON CONFLICT (LOWER(name)) DO UPDATE SET name = supplier_directory.name
-           RETURNING name`,
+           RETURNING name, user_id`,
           [supplierName]
         );
         if (!supplierResult.rowCount) throw new Error("Could not find the selected supplier.");
+        if (supplierResult.rows[0].user_id) {
+          supplierId = Number(supplierResult.rows[0].user_id);
+          supplierName = null;
+        }
       }
       const result = await client.query(
         `INSERT INTO samples (reference, supplier_id, supplier_name)
@@ -580,11 +623,15 @@ app.patch("/api/manager/samples/:id", requireAuth, requireRole("manager"), async
       }
       if (supplierName) {
         const supplierResult = await pool.query(
-          "SELECT name FROM supplier_directory WHERE LOWER(name) = LOWER($1)",
+          "SELECT name, user_id FROM supplier_directory WHERE LOWER(name) = LOWER($1)",
           [supplierName]
         );
         if (!supplierResult.rowCount) return response.status(400).json({ error: "Supplier not found in the directory." });
         supplierName = supplierResult.rows[0].name;
+        if (supplierResult.rows[0].user_id) {
+          supplierId = Number(supplierResult.rows[0].user_id);
+          supplierName = null;
+        }
       }
     }
 
