@@ -555,13 +555,6 @@ app.patch("/api/manager/samples/:id", requireAuth, requireRole("manager"), async
     for (const [key, column] of Object.entries(sampleFields)) {
       if (key in body) values[column] = key === "renvoye" ? body[key] === "YES" : (body[key] || null);
     }
-    if (values.disponible === "NO" && !values.date_disponibilite) {
-      return response.status(400).json({ error: "Enter the expected availability date when the sample is unavailable." });
-    }
-    if (values.renvoye && !values.date_renvoi) {
-      return response.status(400).json({ error: "Enter the return date when the sample has been returned." });
-    }
-
     let supplierId = values.supplier_id;
     let supplierName = values.supplier_name;
     if ("supplierId" in body || "supplierName" in body) {
@@ -662,13 +655,6 @@ app.patch("/api/samples/:id", requireAuth, requireRole("supplier"), async (reque
     for (const [key, column] of Object.entries(sampleFields)) {
       if (key in body) values[column] = key === "renvoye" ? body[key] === "YES" : (body[key] || null);
     }
-    if (values.disponible === "NO" && !values.date_disponibilite) {
-      return response.status(400).json({ error: "Enter the expected availability date when the sample is unavailable." });
-    }
-    if (values.renvoye && !values.date_renvoi) {
-      return response.status(400).json({ error: "Enter the return date when the sample has been returned." });
-    }
-
     const result = await pool.query(
       `UPDATE samples SET date_demande = $1, disponible = $2, date_disponibilite = $3,
          date_envoi = $4, date_reception = $5, renvoye = $6, date_renvoi = $7, updated_at = NOW()

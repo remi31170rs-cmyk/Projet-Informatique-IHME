@@ -361,11 +361,6 @@ function App() {
   }
 
   const manager = user?.role === "manager";
-  const completedCount = samples.filter((sample) =>
-    sample.dateDemande && sample.disponible && sample.dateEnvoi && sample.dateReception
-    && (sample.disponible !== "NO" || sample.dateDisponibilite)
-    && (sample.renvoye !== "YES" || sample.dateRenvoi)
-  ).length;
 
   if (!user) {
     return (
@@ -499,8 +494,6 @@ function App() {
             <>
               <section className="summary-row">
                 <Summary icon={<Boxes size={18} />} label="References" value={samples.length} tone="mint" />
-                <Summary icon={<Check size={18} />} label="Tracking completed" value={completedCount} tone="yellow" />
-                <Summary icon={<Users size={18} />} label="Suppliers" value={suppliers.length} tone="coral" />
               </section>
               <section className="workspace-grid manager-overview">
                 <div className="primary-column">
@@ -722,7 +715,7 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
         <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)}>
           <option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option>
         </select>
-        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} required={draft.disponible === "NO"} />
+        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} />
       </div>
       <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} /></div>
       <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} /></div>
@@ -730,7 +723,7 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
         <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)}>
           <option value="NO">NO</option><option value="YES">YES</option>
         </select>
-        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} required={draft.renvoye === "YES"} />
+        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} />
       </div>
       <div className="table-cell row-actions" data-label="Actions">
         <button className="icon-button save-icon" type="submit" aria-label={`Save ${sample.reference}`} title="Save" disabled={busy}><Save size={15} /></button>
@@ -815,11 +808,11 @@ function SupplierWorkspace({ samples, selectedId, setSelectedId, selectedSample,
             <div className="field-grid">
               <DateField label="Sample request date" value={followup.dateDemande} onChange={(value) => setFollowup({ ...followup, dateDemande: value })} />
               <label className="form-field">Availability<select value={followup.disponible} onChange={(event) => setFollowup({ ...followup, disponible: event.target.value })}><option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option></select></label>
-              <DateField label="Expected availability date" value={followup.dateDisponibilite} onChange={(value) => setFollowup({ ...followup, dateDisponibilite: value })} required={followup.disponible === "NO"} />
+              <DateField label="Expected availability date" value={followup.dateDisponibilite} onChange={(value) => setFollowup({ ...followup, dateDisponibilite: value })} />
               <DateField label="Sample shipment date" value={followup.dateEnvoi} onChange={(value) => setFollowup({ ...followup, dateEnvoi: value })} />
               <DateField label="Sample receipt date" value={followup.dateReception} onChange={(value) => setFollowup({ ...followup, dateReception: value })} />
               <label className="form-field">Has the sample been returned?<select value={followup.renvoye} onChange={(event) => setFollowup({ ...followup, renvoye: event.target.value })}><option value="NO">NO</option><option value="YES">YES</option></select></label>
-              <DateField label="Return date" value={followup.dateRenvoi} onChange={(value) => setFollowup({ ...followup, dateRenvoi: value })} required={followup.renvoye === "YES"} />
+              <DateField label="Return date" value={followup.dateRenvoi} onChange={(value) => setFollowup({ ...followup, dateRenvoi: value })} />
             </div>
             <div className="save-row"><span><ShieldCheck size={15} /> Your updates are shared with the manager</span><button className="button button-dark" disabled={busy}><Save size={16} /> {busy ? "Saving…" : "Save updates"}</button></div>
           </form>}

@@ -59,13 +59,13 @@ CREATE TABLE IF NOT EXISTS samples (
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT samples_reference_not_blank CHECK (LENGTH(TRIM(reference)) > 0),
-  CONSTRAINT sample_availability_date_required CHECK (disponible <> 'NO' OR date_disponibilite IS NOT NULL),
-  CONSTRAINT sample_return_date_required CHECK (NOT renvoye OR date_renvoi IS NOT NULL)
+  CONSTRAINT samples_reference_not_blank CHECK (LENGTH(TRIM(reference)) > 0)
 );
 
 ALTER TABLE samples ADD COLUMN IF NOT EXISTS supplier_name TEXT;
 ALTER TABLE samples ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE samples DROP CONSTRAINT IF EXISTS sample_availability_date_required;
+ALTER TABLE samples DROP CONSTRAINT IF EXISTS sample_return_date_required;
 
 CREATE UNIQUE INDEX IF NOT EXISTS samples_reference_lower_unique ON samples (LOWER(reference));
 CREATE INDEX IF NOT EXISTS samples_supplier_id_idx ON samples (supplier_id);
