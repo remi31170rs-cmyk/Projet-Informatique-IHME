@@ -63,7 +63,9 @@ function dateTimeLabel(value) {
 }
 
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem("sample-token") || "");
+  const [token, setToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).has("resetToken")
+    ? ""
+    : localStorage.getItem("sample-token") || "");
   const [user, setUser] = useState(null);
   const [samples, setSamples] = useState([]);
   const [historySamples, setHistorySamples] = useState([]);
@@ -84,7 +86,10 @@ function App() {
     phone: "",
     jobTitle: "",
   });
-  const [showRegistration, setShowRegistration] = useState(false);
+  const [authMode, setAuthMode] = useState(() => new URLSearchParams(window.location.hash.slice(1)).has("resetToken") ? "reset" : "login");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [newSupplier, setNewSupplier] = useState({
     name: "",
     firstName: "",
@@ -189,6 +194,51 @@ function App() {
       setToken(result.token);
       await loadWorkspace(result.token, result.user);
       setMessage({ type: "success", text: "Account created. Welcome!" });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestPasswordReset(event) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api("/api/auth/password-reset/request", "", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setMessage({ type: "success", text: result.message });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitPasswordReset(event) {
+    event.preventDefault();
+    if (resetPassword !== confirmResetPassword) {
+      setMessage({ type: "error", text: "The passwords do not match." });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const resetToken = new URLSearchParams(window.location.hash.slice(1)).get("resetToken") || "";
+      const result = await api("/api/auth/password-reset/confirm", "", {
+        method: "POST",
+        body: JSON.stringify({ token: resetToken, password: resetPassword }),
+      });
+      localStorage.removeItem("sample-token");
+      setToken("");
+      setUser(null);
+      setAuthMode("login");
+      setCredentials({ email: "", password: "" });
+      window.history.replaceState(null, "", window.location.pathname);
+      setMessage({ type: "success", text: result.message });
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -333,10 +383,10 @@ function App() {
           <div className="login-inner">
             <div className="brand-mark"><Factory size={20} /></div>
             <p className="eyebrow">SECURE WORKSPACE</p>
-            <h2>{showRegistration ? "Create an account" : "Sign in"}</h2>
-            <p className="muted">{showRegistration ? "Create your account to track supplier samples." : "Sign in to your supplier tracking workspace."}</p>
+            <h2>{authMode === "register" ? "Create an account" : authMode === "forgot" ? "Reset your password" : authMode === "reset" ? "Choose a new password" : "Sign in"}</h2>
+            <p className="muted">{authMode === "register" ? "Create your account to track supplier samples." : authMode === "forgot" ? "Enter your account email and we will send a reset link." : authMode === "reset" ? "Choose a new password for your account." : "Sign in to your supplier tracking workspace."}</p>
             {message && <Message message={message} />}
-            {showRegistration ? (
+            {authMode === "register" ? (
               <form className="stack-form" onSubmit={submitRegistration}>
                 <div className="field-grid">
                   <label className="form-field">First name<input autoComplete="given-name" maxLength={100} value={registration.firstName} onChange={(event) => setRegistration({ ...registration, firstName: event.target.value })} required /></label>
@@ -358,16 +408,34 @@ function App() {
                 )}
                 <button className="button button-dark button-wide" disabled={busy}>{busy ? "Creating…" : "Create account"}<ArrowUpRight size={17} /></button>
               </form>
+            ) : authMode === "forgot" ? (
+              <form className="stack-form" onSubmit={requestPasswordReset}>
+                <label>Email address<input type="email" autoComplete="email" maxLength={254} value={forgotEmail} onChange={(event) => setForgotEmail(event.target.value)} required /></label>
+                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Sending…" : "Send reset link"}<ArrowUpRight size={17} /></button>
+              </form>
+            ) : authMode === "reset" ? (
+              <form className="stack-form" onSubmit={submitPasswordReset}>
+                <label>New password<input type="password" autoComplete="new-password" minLength={12} value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} required /><small>At least 12 characters</small></label>
+                <label>Confirm new password<input type="password" autoComplete="new-password" minLength={12} value={confirmResetPassword} onChange={(event) => setConfirmResetPassword(event.target.value)} required /></label>
+                <button className="button button-dark button-wide" disabled={busy}>{busy ? "Updating…" : "Update password"}<ArrowUpRight size={17} /></button>
+              </form>
             ) : (
               <form className="stack-form" onSubmit={submitLogin}>
                 <label>Email address<input type="email" autoComplete="username" value={credentials.email} onChange={(event) => setCredentials({ ...credentials, email: event.target.value })} required /></label>
                 <label>Password<input type="password" autoComplete="current-password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label>
                 <button className="button button-dark button-wide" disabled={busy}>{busy ? "Signing in…" : "Sign in"}<ArrowUpRight size={17} /></button>
+                <button className="login-switch" type="button" onClick={() => { setForgotEmail(credentials.email); setAuthMode("forgot"); setMessage(null); }}>Forgot your password?</button>
               </form>
             )}
-            <button className="login-switch" type="button" onClick={() => { setShowRegistration(!showRegistration); setMessage(null); }}>
-              {showRegistration ? "Already have an account? Sign in" : "New here? Create an account"}
-            </button>
+            {authMode === "login" || authMode === "register" ? (
+              <button className="login-switch" type="button" onClick={() => { setAuthMode(authMode === "register" ? "login" : "register"); setMessage(null); }}>
+                {authMode === "register" ? "Already have an account? Sign in" : "New here? Create an account"}
+              </button>
+            ) : (
+              <button className="login-switch" type="button" onClick={() => { setAuthMode("login"); setMessage(null); }}>
+                Back to sign in
+              </button>
+            )}
             <p className="login-foot"><ShieldCheck size={15} /> Access is restricted to authorised accounts</p>
           </div>
         </section>

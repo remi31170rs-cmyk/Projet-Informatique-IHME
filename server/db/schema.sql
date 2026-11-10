@@ -13,6 +13,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS password_reset_tokens_user_id_idx
+  ON password_reset_tokens (user_id);
+
 CREATE TABLE IF NOT EXISTS supplier_directory (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,

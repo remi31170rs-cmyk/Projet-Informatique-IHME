@@ -19,9 +19,12 @@ Application de suivi avec un frontend React, une API Node.js/Express et une base
 
 Le script `seed:manager` utilise `ADMIN_EMAIL` et `ADMIN_PASSWORD` dans `server/.env`; le relancer crée le compte gestionnaire ou réinitialise son mot de passe si le compte existe déjà. Un fournisseur peut créer son accès depuis l'accueil; son numéro international est demandé avec ses informations de compte.
 
+La récupération de mot de passe utilise un lien valable 30 minutes. En développement local, sans configuration e-mail, le lien apparaît dans le terminal de l'API. En production, renseigner `RESEND_API_KEY`, `EMAIL_FROM` avec une adresse d'expéditeur vérifiée chez Resend, et `APP_URL` avec l'adresse publique de l'application.
+
 ## Fonctionnalités de base
 
 - Connexion avec JWT et rôles `manager` / `supplier`.
+- Réinitialisation de mot de passe par lien à usage unique envoyé par e-mail.
 - Création de compte depuis l'accueil avec prénom, nom, e-mail et mot de passe (12 caractères minimum). Un fournisseur renseigne son entreprise; un référant indique son poste et est rattaché à Lacoste.
 - La page Fournisseurs permet au référant de visualiser, ajouter et modifier les fournisseurs de l'annuaire ainsi que les comptes fournisseurs existants (nom de l'entreprise, contact, e-mail et téléphone).
 - Lors de la création d'une référence, un référant peut choisir un compte fournisseur existant ou un fournisseur de l'annuaire.
