@@ -17,7 +17,7 @@ Application de suivi avec un frontend React, une API Node.js/Express et une base
 5. Lancer le frontend et l'API: `npm run dev`.
 6. Ouvrir `http://localhost:5173`.
 
-Le script de création du compte gestionnaire demande les identifiants par variables `ADMIN_EMAIL` et `ADMIN_PASSWORD` dans `server/.env`. Un fournisseur peut créer son accès depuis l'accueil; son numéro international est demandé avec ses informations de compte.
+Le script `seed:manager` utilise `ADMIN_EMAIL` et `ADMIN_PASSWORD` dans `server/.env`; le relancer crée le compte gestionnaire ou réinitialise son mot de passe si le compte existe déjà. Un fournisseur peut créer son accès depuis l'accueil; son numéro international est demandé avec ses informations de compte.
 
 ## Fonctionnalités de base
 
