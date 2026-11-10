@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -106,6 +106,7 @@ function App() {
   });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  const managerSaveQueue = useRef(Promise.resolve());
 
   async function loadWorkspace(authToken, currentUser) {
     const { samples: sampleRows } = await api("/api/samples", authToken);
@@ -328,10 +329,24 @@ function App() {
     }
   }
 
+  function autoSaveManagerSample(sampleId, changes) {
+    managerSaveQueue.current = managerSaveQueue.current
+      .catch(() => {})
+      .then(async () => {
+        const result = await api(`/api/manager/samples/${sampleId}`, token, {
+          method: "PATCH",
+          body: JSON.stringify(changes),
+        });
+        setSamples((current) => current.map((sample) => sample.id === result.sample.id ? result.sample : sample));
+      })
+      .catch((error) => setMessage({ type: "error", text: error.message }));
+  }
+
   async function saveManagerSample(sampleId, changes) {
     setBusy(true);
     setMessage(null);
     try {
+      await managerSaveQueue.current;
       const result = await api(`/api/manager/samples/${sampleId}`, token, {
         method: "PATCH",
         body: JSON.stringify(changes),
@@ -505,6 +520,7 @@ function App() {
                       filters={sampleFilters}
                       setFilters={setSampleFilters}
                       onSave={saveManagerSample}
+                      onAutoSave={autoSaveManagerSample}
                       onDelete={deleteSample}
                       busy={busy}
                     />
@@ -577,7 +593,7 @@ function filterValue(sample, key) {
   }
 }
 
-function SampleTable({ rows, suppliers, history = false, filters, setFilters, onSave, onDelete, busy = false }) {
+function SampleTable({ rows, suppliers, history = false, filters, setFilters, onSave, onAutoSave, onDelete, busy = false }) {
   const columns = history ? [...tableColumns, { key: "archive", label: "ARCHIVED ON" }] : tableColumns;
   const options = Object.fromEntries(columns.map(({ key }) => [
     key,
@@ -623,7 +639,7 @@ function SampleTable({ rows, suppliers, history = false, filters, setFilters, on
           <div className="table-cell" data-label="Archived on">{filterValue(sample, "archive")}</div>
         </div>
       ) : (
-        <ManagerSampleRow key={sample.id} sample={sample} suppliers={suppliers} onSave={onSave} onDelete={onDelete} busy={busy} />
+        <ManagerSampleRow key={sample.id} sample={sample} suppliers={suppliers} onSave={onSave} onAutoSave={onAutoSave} onDelete={onDelete} busy={busy} />
       ))}
     </div>
   );
@@ -671,11 +687,20 @@ function createManagerSampleDraft(sample) {
   };
 }
 
-function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
+function ManagerSampleRow({ sample, suppliers, onSave, onAutoSave, onDelete, busy }) {
   const [draft, setDraft] = useState(() => createManagerSampleDraft(sample));
 
   function update(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
+    if (key === "supplierSelection") {
+      const account = value.startsWith("account:");
+      onAutoSave(sample.id, {
+        supplierId: account ? value.slice(8) : null,
+        supplierName: value.startsWith("named:") ? value.slice(6) : null,
+      });
+      return;
+    }
+    onAutoSave(sample.id, { [key]: value });
   }
 
   function submit(event) {
@@ -699,7 +724,7 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
     <form className="table-row editable-row" onSubmit={submit}>
       <div className="table-cell" data-label="Reference"><strong className="ref-cell">{sample.reference}</strong></div>
       <div className="table-cell" data-label="Supplier">
-        <select aria-label={`Supplier for ${sample.reference}`} value={draft.supplierSelection || ""} onChange={(event) => update("supplierSelection", event.target.value)}>
+        <select aria-label={`Supplier for ${sample.reference}`} value={draft.supplierSelection || ""} onChange={(event) => update("supplierSelection", event.target.value)} disabled={busy}>
           <option value="">Unassigned</option>
           {suppliers.map((supplier) => supplier.kind === "account" ? (
             <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
@@ -710,20 +735,20 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
           ))}
         </select>
       </div>
-      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} /></div>
+      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} disabled={busy} /></div>
       <div className="table-cell row-control-group" data-label="Availability">
-        <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)}>
+        <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)} disabled={busy}>
           <option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option>
         </select>
-        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} />
+        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} disabled={busy} />
       </div>
-      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} /></div>
-      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} /></div>
+      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} disabled={busy} /></div>
+      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} disabled={busy} /></div>
       <div className="table-cell row-control-group" data-label="Returned">
-        <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)}>
+        <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)} disabled={busy}>
           <option value="NO">NO</option><option value="YES">YES</option>
         </select>
-        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} />
+        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} disabled={busy} />
       </div>
       <div className="table-cell row-actions" data-label="Actions">
         <button className="icon-button save-icon" type="submit" aria-label={`Save ${sample.reference}`} title="Save" disabled={busy}><Save size={15} /></button>

@@ -38,16 +38,21 @@ function presentSample(row) {
     supplierId: row.supplier_id,
     supplierEmail: row.supplier_email || null,
     supplierName: row.supplier_name || null,
-    dateDemande: row.date_demande,
+    dateDemande: presentDate(row.date_demande),
     disponible: row.disponible,
-    dateDisponibilite: row.date_disponibilite,
-    dateEnvoi: row.date_envoi,
-    dateReception: row.date_reception,
+    dateDisponibilite: presentDate(row.date_disponibilite),
+    dateEnvoi: presentDate(row.date_envoi),
+    dateReception: presentDate(row.date_reception),
     renvoye: row.renvoye ? "YES" : "NO",
-    dateRenvoi: row.date_renvoi,
+    dateRenvoi: presentDate(row.date_renvoi),
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at || null,
   };
+}
+
+function presentDate(value) {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 }
 
 function presentUser(row) {
