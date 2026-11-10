@@ -384,7 +384,7 @@ function App() {
             <div className="brand-mark"><Factory size={20} /></div>
             <p className="eyebrow">SECURE WORKSPACE</p>
             <h2>{authMode === "register" ? "Create an account" : authMode === "forgot" ? "Reset your password" : authMode === "reset" ? "Choose a new password" : "Sign in"}</h2>
-            <p className="muted">{authMode === "register" ? "Create your account to track supplier samples." : authMode === "forgot" ? "Enter your account email and we will send a reset link." : authMode === "reset" ? "Choose a new password for your account." : "Sign in to your supplier tracking workspace."}</p>
+            <p className="muted">{authMode === "register" ? "Create your account to track supplier samples." : authMode === "forgot" ? "Enter the email address linked to your account." : authMode === "reset" ? "Choose a new password for your account." : "Sign in to your supplier tracking workspace."}</p>
             {message && <Message message={message} />}
             {authMode === "register" ? (
               <form className="stack-form" onSubmit={submitRegistration}>
@@ -623,10 +623,10 @@ function SampleTable({ rows, suppliers, history = false, filters, setFilters, on
           <div className="table-cell" data-label="Reference"><strong className="ref-cell">{sample.reference}</strong></div>
           <div className="table-cell" data-label="Supplier">{sample.supplierName || sample.supplierEmail || <em>Unassigned</em>}</div>
           <div className="table-cell" data-label="Requested">{dateLabel(sample.dateDemande)}</div>
-          <div className="table-cell status-detail" data-label="Availability"><Status value={sample.disponible} />{sample.disponible === "NO" && sample.dateDisponibilite && <small>Expected · {dateLabel(sample.dateDisponibilite)}</small>}</div>
+          <div className="table-cell status-detail" data-label="Availability"><Status value={sample.disponible} />{sample.dateDisponibilite && <small>Expected · {dateLabel(sample.dateDisponibilite)}</small>}</div>
           <div className="table-cell" data-label="Sent">{dateLabel(sample.dateEnvoi)}</div>
           <div className="table-cell" data-label="Received">{dateLabel(sample.dateReception)}</div>
-          <div className="table-cell status-detail" data-label="Returned"><Status value={sample.renvoye} />{sample.renvoye === "YES" && sample.dateRenvoi && <small>{dateLabel(sample.dateRenvoi)}</small>}</div>
+          <div className="table-cell status-detail" data-label="Returned"><Status value={sample.renvoye} />{sample.dateRenvoi && <small>{dateLabel(sample.dateRenvoi)}</small>}</div>
           <div className="table-cell" data-label="Archived on">{filterValue(sample, "archive")}</div>
         </div>
       ) : (
@@ -722,7 +722,7 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
         <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)}>
           <option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option>
         </select>
-        {draft.disponible === "NO" && <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} required />}
+        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} required={draft.disponible === "NO"} />
       </div>
       <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} /></div>
       <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} /></div>
@@ -730,7 +730,7 @@ function ManagerSampleRow({ sample, suppliers, onSave, onDelete, busy }) {
         <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)}>
           <option value="NO">NO</option><option value="YES">YES</option>
         </select>
-        {draft.renvoye === "YES" && <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} required />}
+        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} required={draft.renvoye === "YES"} />
       </div>
       <div className="table-cell row-actions" data-label="Actions">
         <button className="icon-button save-icon" type="submit" aria-label={`Save ${sample.reference}`} title="Save" disabled={busy}><Save size={15} /></button>
@@ -814,12 +814,12 @@ function SupplierWorkspace({ samples, selectedId, setSelectedId, selectedSample,
             <div className="followup-heading"><div><p className="eyebrow">SAMPLE DETAILS</p><h2>{selectedSample.reference}</h2></div><span className="status-tag">{selectedSample.dateReception ? "Received" : "In progress"}</span></div>
             <div className="field-grid">
               <DateField label="Sample request date" value={followup.dateDemande} onChange={(value) => setFollowup({ ...followup, dateDemande: value })} />
-              <label className="form-field">Availability<select value={followup.disponible} onChange={(event) => setFollowup({ ...followup, disponible: event.target.value, dateDisponibilite: event.target.value === "NO" ? followup.dateDisponibilite : "" })}><option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option></select></label>
-              {followup.disponible === "NO" && <DateField label="Expected availability date" value={followup.dateDisponibilite} onChange={(value) => setFollowup({ ...followup, dateDisponibilite: value })} required />}
+              <label className="form-field">Availability<select value={followup.disponible} onChange={(event) => setFollowup({ ...followup, disponible: event.target.value })}><option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option></select></label>
+              <DateField label="Expected availability date" value={followup.dateDisponibilite} onChange={(value) => setFollowup({ ...followup, dateDisponibilite: value })} required={followup.disponible === "NO"} />
               <DateField label="Sample shipment date" value={followup.dateEnvoi} onChange={(value) => setFollowup({ ...followup, dateEnvoi: value })} />
               <DateField label="Sample receipt date" value={followup.dateReception} onChange={(value) => setFollowup({ ...followup, dateReception: value })} />
-              <label className="form-field">Has the sample been returned?<select value={followup.renvoye} onChange={(event) => setFollowup({ ...followup, renvoye: event.target.value, dateRenvoi: event.target.value === "YES" ? followup.dateRenvoi : "" })}><option value="NO">NO</option><option value="YES">YES</option></select></label>
-              {followup.renvoye === "YES" && <DateField label="Return date" value={followup.dateRenvoi} onChange={(value) => setFollowup({ ...followup, dateRenvoi: value })} required />}
+              <label className="form-field">Has the sample been returned?<select value={followup.renvoye} onChange={(event) => setFollowup({ ...followup, renvoye: event.target.value })}><option value="NO">NO</option><option value="YES">YES</option></select></label>
+              <DateField label="Return date" value={followup.dateRenvoi} onChange={(value) => setFollowup({ ...followup, dateRenvoi: value })} required={followup.renvoye === "YES"} />
             </div>
             <div className="save-row"><span><ShieldCheck size={15} /> Your updates are shared with the manager</span><button className="button button-dark" disabled={busy}><Save size={16} /> {busy ? "Saving…" : "Save updates"}</button></div>
           </form>}

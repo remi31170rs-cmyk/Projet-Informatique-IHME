@@ -17,14 +17,13 @@ Application de suivi avec un frontend React, une API Node.js/Express et une base
 5. Lancer le frontend et l'API: `npm run dev`.
 6. Ouvrir `http://localhost:5173`.
 
-Le script `seed:manager` utilise `ADMIN_EMAIL` et `ADMIN_PASSWORD` dans `server/.env`; le relancer crée le compte gestionnaire ou réinitialise son mot de passe si le compte existe déjà. Un fournisseur peut créer son accès depuis l'accueil; son numéro international est demandé avec ses informations de compte.
+Le script `seed:manager` utilise `ADMIN_EMAIL` et `ADMIN_PASSWORD` dans `server/.env` pour créer le compte gestionnaire initial. Un fournisseur peut créer son accès depuis l'accueil; son numéro international est demandé avec ses informations de compte.
 
-La récupération de mot de passe utilise un lien valable 30 minutes. En développement local, sans configuration e-mail, le lien apparaît dans le terminal de l'API. En production, renseigner `RESEND_API_KEY`, `EMAIL_FROM` avec une adresse d'expéditeur vérifiée chez Resend, et `APP_URL` avec l'adresse publique de l'application.
+La connexion propose « Forgot your password? ». En développement local, le lien de réinitialisation apparaît dans le terminal de l'API; il expire au bout de 30 minutes. En production, configurer `RESEND_API_KEY`, `EMAIL_FROM` (adresse vérifiée chez Resend) et `APP_URL` (URL publique du site) dans l'environnement du serveur pour envoyer le lien par e-mail.
 
 ## Fonctionnalités de base
 
 - Connexion avec JWT et rôles `manager` / `supplier`.
-- Réinitialisation de mot de passe par lien à usage unique envoyé par e-mail.
 - Création de compte depuis l'accueil avec prénom, nom, e-mail et mot de passe (12 caractères minimum). Un fournisseur renseigne son entreprise; un référant indique son poste et est rattaché à Lacoste.
 - La page Fournisseurs permet au référant de visualiser, ajouter et modifier les fournisseurs de l'annuaire ainsi que les comptes fournisseurs existants (nom de l'entreprise, contact, e-mail et téléphone).
 - Lors de la création d'une référence, un référant peut choisir un compte fournisseur existant ou un fournisseur de l'annuaire.
@@ -40,6 +39,8 @@ La récupération de mot de passe utilise un lien valable 30 minutes. En dévelo
 
 - `POST /api/auth/login` : connexion.
 - `POST /api/auth/register` : création de compte fournisseur ou référant Lacoste.
+- `POST /api/auth/password-reset/request` : demander un lien de réinitialisation à usage unique par e-mail.
+- `POST /api/auth/password-reset/confirm` : définir un nouveau mot de passe à partir du lien reçu.
 - `GET /api/auth/me` : utilisateur courant (JWT requis).
 - `GET /api/samples` : liste des samples (JWT requis).
 - `GET /api/samples/history` : références archivées (gestionnaire uniquement).
@@ -52,11 +53,11 @@ La récupération de mot de passe utilise un lien valable 30 minutes. En dévelo
 - `PATCH /api/samples/:id` : modifier les champs de suivi (supplier uniquement).
 - `GET /api/health` : état de l'API.
 
-Ne pas utiliser les identifiants de développement en production. Déployer avec TLS, un secret JWT dédié et une base PostgreSQL sauvegardée. L'inscription publique des référants crée un compte gestionnaire, autorisé à créer des références et des fournisseurs; ne l'activer que si cet accès ouvert est volontaire. Ce socle ne fournit pas encore de procédure de réinitialisation de mot de passe ni d'envoi d'invitations.
+Ne pas utiliser les identifiants de développement en production. Déployer avec TLS, un secret JWT dédié et une base PostgreSQL sauvegardée. L'inscription publique des référants crée un compte gestionnaire, autorisé à créer des références et des fournisseurs; ne l'activer que si cet accès ouvert est volontaire. Pour réinitialiser son mot de passe, demander à l'administrateur l'envoi d'un lien par e-mail.
 
 ## Déploiement étudiant
 
-Le workflow GitHub Actions construit et publie une image Docker dans GHCR à chaque push sur `main` ou `master`. Pour la rendre compatible avec l'espace attribué, configurer la variable `IHME_BASE_PATH` (par exemple `/mon-projet/`). Le serveur doit être préprovisionné par l'enseignant et autoriser l'image GHCR de ce dépôt. À l'exécution, il doit fournir `DATABASE_URL` et un `JWT_SECRET` d'au moins 32 caractères; ces secrets ne sont jamais intégrés à l'image.
+Le workflow GitHub Actions construit et publie une image Docker dans GHCR à chaque push sur `main` ou `master`. Pour la rendre compatible avec l'espace attribué, configurer la variable `IHME_BASE_PATH` (par exemple `/mon-projet/`). Le serveur doit être préprovisionné par l'enseignant et autoriser l'image GHCR de ce dépôt. À l'exécution, il doit fournir `DATABASE_URL`, un `JWT_SECRET` d'au moins 32 caractères, `RESEND_API_KEY`, `EMAIL_FROM` et `APP_URL`; ces paramètres ne sont jamais intégrés à l'image.
 
 Dans les paramètres Actions du dépôt, configurer la variable `IHME_DEPLOY_URL` (URL HTTPS terminée par `/__deploy/pNN`) et le secret `IHME_DEPLOY_TOKEN` remis par l'enseignant. Le déploiement est volontaire : lancer le workflow « Construire et publier l’image » manuellement et cocher « Déployer cette version après construction ». Ne jamais versionner de jeton ou de fichier d'accès.
 

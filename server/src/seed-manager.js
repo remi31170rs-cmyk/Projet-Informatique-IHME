@@ -11,18 +11,12 @@ if (!email || !password || password.length < 12) {
 } else {
   try {
     const passwordHash = await bcrypt.hash(password, 12);
-    const result = await pool.query(
+    await pool.query(
       `INSERT INTO users (email, password_hash, role)
        VALUES ($1, $2, 'manager')
-       ON CONFLICT (email) DO UPDATE
-       SET password_hash = EXCLUDED.password_hash
-       WHERE users.role = 'manager'
-       RETURNING id`,
+       ON CONFLICT (email) DO NOTHING`,
       [email, passwordHash]
     );
-    if (!result.rowCount) {
-      throw new Error("Cette adresse est déjà utilisée par un compte fournisseur.");
-    }
     console.log(`Compte gestionnaire prêt : ${email}`);
   } catch (error) {
     console.error("Impossible de créer le compte gestionnaire.", error.message);

@@ -93,10 +93,14 @@ app.post("/api/auth/password-reset/request", async (request, response, next) => 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       return response.status(400).json({ error: "Enter a valid email address." });
     }
+
     const canSendEmail = Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
     if (!canSendEmail && process.env.NODE_ENV === "production") {
-      return response.status(503).json({ error: "Password reset email is not configured." });
+      return response.status(503).json({ error: "Password reset email is not configured. Set RESEND_API_KEY and EMAIL_FROM on the server." });
     }
+    const message = canSendEmail
+      ? "If an account exists for that email, a reset link will be sent."
+      : "If an account exists for that email, its reset link is printed in the API terminal.";
 
     const result = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
     if (result.rowCount) {
@@ -105,55 +109,48 @@ app.post("/api/auth/password-reset/request", async (request, response, next) => 
         "SELECT 1 FROM password_reset_tokens WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 minute' LIMIT 1",
         [userId]
       );
-      if (recentToken.rowCount) {
-        const message = canSendEmail
-          ? "If an account exists for that email, a reset link will be sent."
-          : "If an account exists for that email, its reset link is printed in the API terminal.";
-        return response.status(202).json({ message });
-      }
-      const rawToken = randomBytes(32).toString("hex");
-      const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-      await pool.query(
-        "DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at <= NOW()",
-        [userId]
-      );
-      await pool.query(
-        "INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 minutes')",
-        [tokenHash, userId]
-      );
+      if (!recentToken.rowCount) {
+        const rawToken = randomBytes(32).toString("hex");
+        const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+        await pool.query(
+          "DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at <= NOW()",
+          [userId]
+        );
+        await pool.query(
+          "INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 minutes')",
+          [tokenHash, userId]
+        );
 
-      const resetUrl = new URL(process.env.APP_URL || process.env.CLIENT_ORIGIN || "http://localhost:5173");
-      resetUrl.hash = new URLSearchParams({ resetToken: rawToken }).toString();
-      if (canSendEmail) {
-        try {
-          const mailResponse = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            signal: AbortSignal.timeout(10000),
-            headers: {
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: process.env.EMAIL_FROM,
-              to: [email],
-              subject: "Reset your Sample Desk password",
-              text: `Use this link to reset your password. It expires in 30 minutes: ${resetUrl}`,
-              html: `<p>Use the link below to reset your Sample Desk password. It expires in 30 minutes.</p><p><a href="${resetUrl}">Reset password</a></p>`,
-            }),
-          });
-          if (!mailResponse.ok) throw new Error(`Resend returned ${mailResponse.status}.`);
-        } catch (error) {
-          await pool.query("DELETE FROM password_reset_tokens WHERE token_hash = $1", [tokenHash]);
-          console.error("Password reset email delivery failed.", error.message);
+        const resetUrl = new URL(process.env.APP_URL || process.env.CLIENT_ORIGIN || "http://localhost:5173");
+        resetUrl.hash = new URLSearchParams({ resetToken: rawToken }).toString();
+        if (canSendEmail) {
+          try {
+            const mailResponse = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              signal: AbortSignal.timeout(10000),
+              headers: {
+                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                from: process.env.EMAIL_FROM,
+                to: [email],
+                subject: "Reset your Sample Desk password",
+                text: `Use this link to reset your password. It expires in 30 minutes: ${resetUrl}`,
+                html: `<p>Use the link below to reset your Sample Desk password. It expires in 30 minutes.</p><p><a href="${resetUrl}">Reset password</a></p>`,
+              }),
+            });
+            if (!mailResponse.ok) throw new Error(`Resend returned ${mailResponse.status}.`);
+          } catch (error) {
+            await pool.query("DELETE FROM password_reset_tokens WHERE token_hash = $1", [tokenHash]);
+            console.error("Password reset email delivery failed.", error.message);
+          }
+        } else {
+          console.info("Development password reset link:", resetUrl.toString());
         }
-      } else {
-        console.info("Development password reset link:", resetUrl.toString());
       }
     }
 
-    const message = canSendEmail
-      ? "If an account exists for that email, a reset link will be sent."
-      : "If an account exists for that email, its reset link is printed in the API terminal.";
     return response.status(202).json({ message });
   } catch (error) {
     return next(error);
@@ -561,8 +558,6 @@ app.patch("/api/manager/samples/:id", requireAuth, requireRole("manager"), async
     if (values.disponible === "NO" && !values.date_disponibilite) {
       return response.status(400).json({ error: "Enter the expected availability date when the sample is unavailable." });
     }
-    if (values.disponible !== "NO") values.date_disponibilite = null;
-    if (!values.renvoye) values.date_renvoi = null;
     if (values.renvoye && !values.date_renvoi) {
       return response.status(400).json({ error: "Enter the return date when the sample has been returned." });
     }
@@ -670,8 +665,6 @@ app.patch("/api/samples/:id", requireAuth, requireRole("supplier"), async (reque
     if (values.disponible === "NO" && !values.date_disponibilite) {
       return response.status(400).json({ error: "Enter the expected availability date when the sample is unavailable." });
     }
-    if (values.disponible !== "NO") values.date_disponibilite = null;
-    if (!values.renvoye) values.date_renvoi = null;
     if (values.renvoye && !values.date_renvoi) {
       return response.status(400).json({ error: "Enter the return date when the sample has been returned." });
     }
