@@ -107,9 +107,9 @@ button { cursor: pointer; }
 .section-heading .eyebrow { margin: 0 0 4px; }
 .section-heading h2 { margin: 0; font: 700 17px 'Manrope', sans-serif; }
 .result-count { color: #89948b; font-size: 10px; }
-.sample-table { min-width: 0; overflow: hidden; border: 1px solid #e3e9e1; border-radius: 5px; background: white; }
+.sample-table { min-width: 0; overflow: visible; border: 1px solid #e3e9e1; border-radius: 5px; background: white; }
 .table-head, .table-row { display: grid; grid-template-columns: minmax(75px, .9fr) minmax(100px, 1.4fr) minmax(95px, 1fr) minmax(105px, 1.1fr) minmax(95px, 1fr) minmax(95px, 1fr) minmax(95px, 1fr) 58px; align-items: center; gap: 8px; padding: 12px; }
-.table-head { border-bottom: 1px solid #e9ede7; color: #89948b; background: #fafbf8; font-size: 8px; font-weight: 700; letter-spacing: .5px; }
+.table-head { position: relative; z-index: 2; border-bottom: 1px solid #e9ede7; color: #89948b; background: #fafbf8; font-size: 8px; font-weight: 700; letter-spacing: .5px; }
 .table-row { min-width: 0; min-height: 55px; border-bottom: 1px solid #edf0eb; color: #657267; font-size: 10px; }
 .table-row:last-child { border: 0; }
 .table-cell { min-width: 0; overflow-wrap: anywhere; }
@@ -123,6 +123,7 @@ button { cursor: pointer; }
 .column-filter summary:hover, .column-filter[open] summary { color: var(--green); background: #eaf1e9; }
 .column-filter.filtered summary { color: #fff; background: var(--green); }
 .filter-menu { position: absolute; z-index: 5; top: 24px; right: 0; width: 190px; max-height: 245px; overflow-y: auto; border: 1px solid #e1e7df; border-radius: 4px; padding: 7px; color: #526055; background: #fff; box-shadow: 0 8px 22px rgba(28, 48, 36, .14); letter-spacing: 0; }
+.table-heading:first-child .filter-menu { left: 0; right: auto; }
 .filter-menu label { display: flex; align-items: center; gap: 7px; padding: 6px 4px; font-size: 10px; font-weight: 500; }
 .filter-menu label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-menu input { margin: 0; accent-color: var(--green); }

@@ -553,7 +553,7 @@ function App() {
             </>
           )
         ) : (
-          <SupplierWorkspace samples={samples} supplierLabel={`${user.company || "Supplier"} — ${user.email}`} filters={sampleFilters} setFilters={setSampleFilters} onSave={saveSupplierSample} busy={busy} />
+          <SupplierWorkspace samples={samples} supplierLabel={user.company || "Supplier"} filters={sampleFilters} setFilters={setSampleFilters} onSave={saveSupplierSample} busy={busy} />
         )}
         <footer className="page-footer"><span>Sample Desk · Supplier tracking</span><span><CircleHelp size={14} /> Changes are saved to the shared database.</span></footer>
       </main>
@@ -725,27 +725,27 @@ function ManagerSampleRow({ sample, suppliers, onSave, onAutoSave, onDelete, bus
           <option value="">Unassigned</option>
           {suppliers.map((supplier) => supplier.kind === "account" ? (
             <option key={`account:${supplier.id}`} value={`account:${supplier.id}`}>
-              {supplier.company ? `${supplier.company} — ` : ""}{supplier.email}
+              {supplier.company || supplier.email}
             </option>
           ) : (
             <option key={`named:${supplier.id}`} value={`named:${supplier.name}`}>{supplier.name}</option>
           ))}
         </select>
       </div>
-      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} disabled={busy} /></div>
+      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} lang="fr" type="date" value={draft.dateDemande || ""} onChange={(event) => update("dateDemande", event.target.value)} disabled={busy} /></div>
       <div className="table-cell row-control-group" data-label="Availability">
         <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => update("disponible", event.target.value)} disabled={busy}>
           <option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option>
         </select>
-        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} disabled={busy} />
+        <input aria-label={`Expected availability date for ${sample.reference}`} lang="fr" type="date" value={draft.dateDisponibilite || ""} onChange={(event) => update("dateDisponibilite", event.target.value)} disabled={busy} />
       </div>
-      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} disabled={busy} /></div>
-      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} disabled={busy} /></div>
+      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} lang="fr" type="date" value={draft.dateEnvoi || ""} onChange={(event) => update("dateEnvoi", event.target.value)} disabled={busy} /></div>
+      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} lang="fr" type="date" value={draft.dateReception || ""} onChange={(event) => update("dateReception", event.target.value)} disabled={busy} /></div>
       <div className="table-cell row-control-group" data-label="Returned">
         <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => update("renvoye", event.target.value)} disabled={busy}>
           <option value="NO">NO</option><option value="YES">YES</option>
         </select>
-        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} disabled={busy} />
+        <input aria-label={`Return date for ${sample.reference}`} lang="fr" type="date" value={draft.dateRenvoi || ""} onChange={(event) => update("dateRenvoi", event.target.value)} disabled={busy} />
       </div>
       <div className="table-cell row-actions" data-label="Actions">
         <button className="icon-button save-icon" type="submit" aria-label={`Save ${sample.reference}`} title="Save" disabled={busy}><Save size={15} /></button>
@@ -837,21 +837,21 @@ function SupplierSampleRow({ sample, supplierLabel, onSave, busy }) {
   return (
     <form className="table-row editable-row" onSubmit={submit}>
       <div className="table-cell" data-label="Reference"><strong className="ref-cell">{sample.reference}</strong></div>
-      <div className="table-cell" data-label="Supplier">{supplierLabel}</div>
-      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => setDraft({ ...draft, dateDemande: event.target.value })} disabled={busy} /></div>
+      <div className="table-cell" data-label="Supplier">{sample.supplierName || supplierLabel}</div>
+      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} lang="fr" type="date" value={draft.dateDemande || ""} onChange={(event) => setDraft({ ...draft, dateDemande: event.target.value })} disabled={busy} /></div>
       <div className="table-cell row-control-group" data-label="Availability">
         <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => setDraft({ ...draft, disponible: event.target.value })} disabled={busy}>
           <option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option>
         </select>
-        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => setDraft({ ...draft, dateDisponibilite: event.target.value })} disabled={busy} />
+        <input aria-label={`Expected availability date for ${sample.reference}`} lang="fr" type="date" value={draft.dateDisponibilite || ""} onChange={(event) => setDraft({ ...draft, dateDisponibilite: event.target.value })} disabled={busy} />
       </div>
-      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => setDraft({ ...draft, dateEnvoi: event.target.value })} disabled={busy} /></div>
-      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => setDraft({ ...draft, dateReception: event.target.value })} disabled={busy} /></div>
+      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} lang="fr" type="date" value={draft.dateEnvoi || ""} onChange={(event) => setDraft({ ...draft, dateEnvoi: event.target.value })} disabled={busy} /></div>
+      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} lang="fr" type="date" value={draft.dateReception || ""} onChange={(event) => setDraft({ ...draft, dateReception: event.target.value })} disabled={busy} /></div>
       <div className="table-cell row-control-group" data-label="Returned">
         <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => setDraft({ ...draft, renvoye: event.target.value })} disabled={busy}>
           <option value="NO">NO</option><option value="YES">YES</option>
         </select>
-        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => setDraft({ ...draft, dateRenvoi: event.target.value })} disabled={busy} />
+        <input aria-label={`Return date for ${sample.reference}`} lang="fr" type="date" value={draft.dateRenvoi || ""} onChange={(event) => setDraft({ ...draft, dateRenvoi: event.target.value })} disabled={busy} />
       </div>
       <div className="table-cell row-actions" data-label="Actions">
         <button className="icon-button save-icon" type="submit" aria-label={`Save ${sample.reference}`} title="Save" disabled={busy}><Save size={15} /></button>

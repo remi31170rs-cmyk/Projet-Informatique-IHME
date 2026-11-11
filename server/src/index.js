@@ -37,7 +37,7 @@ function presentSample(row) {
     reference: row.reference,
     supplierId: row.supplier_id,
     supplierEmail: row.supplier_email || null,
-    supplierName: row.supplier_name || null,
+    supplierName: row.supplier_name || row.supplier_company || null,
     dateDemande: presentDate(row.date_demande),
     disponible: row.disponible,
     dateDisponibilite: presentDate(row.date_disponibilite),
@@ -526,8 +526,9 @@ app.get("/api/samples", requireAuth, async (request, response, next) => {
   try {
     const supplierOnly = request.user.role === "supplier";
     const result = await pool.query(
-      `SELECT s.*, u.email AS supplier_email
+      `SELECT s.*, u.email AS supplier_email, COALESCE(d.name, u.company) AS supplier_company
        FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
+       LEFT JOIN supplier_directory d ON d.user_id = u.id
        WHERE s.deleted_at IS NULL ${supplierOnly ? "AND s.supplier_id = $1" : ""}
        ORDER BY s.created_at DESC`,
       supplierOnly ? [request.user.sub] : []
@@ -541,8 +542,9 @@ app.get("/api/samples", requireAuth, async (request, response, next) => {
 app.get("/api/samples/history", requireAuth, requireRole("manager"), async (_request, response, next) => {
   try {
     const result = await pool.query(
-      `SELECT s.*, u.email AS supplier_email
+      `SELECT s.*, u.email AS supplier_email, COALESCE(d.name, u.company) AS supplier_company
        FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
+       LEFT JOIN supplier_directory d ON d.user_id = u.id
        WHERE s.deleted_at IS NOT NULL
        ORDER BY s.deleted_at DESC, s.created_at DESC`
     );
@@ -683,8 +685,9 @@ app.patch("/api/manager/samples/:id", requireAuth, requireRole("manager"), async
     );
     if (!updatedResult.rowCount) return response.status(404).json({ error: "Sample not found." });
     const result = await pool.query(
-      `SELECT s.*, u.email AS supplier_email
+      `SELECT s.*, u.email AS supplier_email, COALESCE(d.name, u.company) AS supplier_company
        FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
+       LEFT JOIN supplier_directory d ON d.user_id = u.id
        WHERE s.id = $1`,
       [id]
     );
@@ -754,8 +757,9 @@ app.patch("/api/samples/:id", requireAuth, requireRole("supplier"), async (reque
     );
     if (!updated.rowCount) return response.status(404).json({ error: "Sample not found." });
     const result = await pool.query(
-      `SELECT s.*, u.email AS supplier_email
+      `SELECT s.*, u.email AS supplier_email, COALESCE(d.name, u.company) AS supplier_company
        FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
+       LEFT JOIN supplier_directory d ON d.user_id = u.id
        WHERE s.id = $1`,
       [id]
     );
