@@ -248,17 +248,54 @@ app.post("/api/auth/register", async (request, response, next) => {
 
     const role = accountType === "referrer" ? "manager" : "supplier";
     const passwordHash = await bcrypt.hash(password, 12);
-    const result = await pool.query(
-      `INSERT INTO users (email, password_hash, role, first_name, last_name, company, job_title, phone)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, email, role, first_name, last_name, company, job_title, phone`,
-      [email, passwordHash, role, firstName, lastName,
-       accountType === "referrer" ? "Lacoste" : company,
-       accountType === "referrer" ? jobTitle : null,
-       accountType === "supplier" ? phone : null]
-    );
+    let result;
+    if (role === "supplier") {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const directory = await client.query(
+          `SELECT id, name, user_id FROM supplier_directory
+           WHERE LOWER(email) = LOWER($1) AND LOWER(name) = LOWER($2)
+           FOR UPDATE`,
+          [email, company]
+        );
+        if (!directory.rowCount) {
+          await client.query("ROLLBACK");
+          return response.status(403).json({ error: "No supplier record matches this email and supplier name. Ask your manager to add you first." });
+        }
+        if (directory.rows[0].user_id) {
+          await client.query("ROLLBACK");
+          return response.status(409).json({ error: "This supplier account is already set up. Sign in or reset your password." });
+        }
+
+        result = await client.query(
+          `INSERT INTO users (email, password_hash, role, first_name, last_name, company, phone)
+           VALUES ($1, $2, 'supplier', $3, $4, $5, $6)
+           RETURNING id, email, role, first_name, last_name, company, job_title, phone`,
+          [email, passwordHash, firstName, lastName, directory.rows[0].name, phone]
+        );
+        await client.query("UPDATE supplier_directory SET user_id = $1 WHERE id = $2", [result.rows[0].id, directory.rows[0].id]);
+        await client.query(
+          `UPDATE samples SET supplier_id = $1, supplier_name = NULL, updated_at = NOW()
+           WHERE supplier_id IS NULL AND LOWER(supplier_name) = LOWER($2)`,
+          [result.rows[0].id, directory.rows[0].name]
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    } else {
+      result = await pool.query(
+        `INSERT INTO users (email, password_hash, role, first_name, last_name, company, job_title)
+         VALUES ($1, $2, $3, $4, $5, 'Lacoste', $6)
+         RETURNING id, email, role, first_name, last_name, company, job_title, phone`,
+        [email, passwordHash, role, firstName, lastName, jobTitle]
+      );
+    }
     const user = presentUser(result.rows[0]);
-    if (role === "supplier") await linkSupplierDirectory(user.id, email);
     const token = jwt.sign(
       { sub: String(user.id), role: user.role, email: user.email },
       process.env.JWT_SECRET,

@@ -17,7 +17,7 @@ Application de suivi avec un frontend React, une API Node.js/Express et une base
 5. Lancer le frontend et l'API: `npm run dev`.
 6. Ouvrir `http://localhost:5173`.
 
-Le script `seed:manager` utilise `ADMIN_EMAIL` et `ADMIN_PASSWORD` dans `server/.env` pour créer le compte gestionnaire initial. Un fournisseur peut créer son accès depuis l'accueil; son numéro international est demandé avec ses informations de compte.
+Le script `seed:manager` utilise `ADMIN_EMAIL` et `ADMIN_PASSWORD` dans `server/.env` pour créer le compte gestionnaire initial. Un fournisseur peut créer son accès depuis l'accueil uniquement après avoir été ajouté dans « Suppliers » : il utilise l'adresse e-mail et le nom fournisseur enregistrés par le gestionnaire, puis choisit son mot de passe. Ses références existantes à ce nom et les références qui lui seront ensuite attribuées apparaissent dans son espace.
 
 La connexion propose « Forgot your password? ». En développement local, le lien de réinitialisation apparaît dans le terminal de l'API; il expire au bout de 30 minutes. En production, configurer `RESEND_API_KEY`, `EMAIL_FROM` (adresse vérifiée chez Resend) et `APP_URL` (URL publique du site) dans l'environnement du serveur pour envoyer le lien par e-mail.
 

@@ -394,7 +394,7 @@ function App() {
             <div className="brand-mark"><Factory size={20} /></div>
             <p className="eyebrow">SECURE WORKSPACE</p>
             <h2>{authMode === "register" ? "Create an account" : authMode === "forgot" ? "Reset your password" : authMode === "reset" ? "Choose a new password" : "Sign in"}</h2>
-            <p className="muted">{authMode === "register" ? "Create your account to track supplier samples." : authMode === "forgot" ? "Enter the email address linked to your account." : authMode === "reset" ? "Choose a new password for your account." : "Sign in to your supplier tracking workspace."}</p>
+            <p className="muted">{authMode === "register" ? "Use the email address and supplier name provided by your manager." : authMode === "forgot" ? "Enter the email address linked to your account." : authMode === "reset" ? "Choose a new password for your account." : "Sign in to your supplier tracking workspace."}</p>
             {message && <Message message={message} />}
             {authMode === "register" ? (
               <form className="stack-form" onSubmit={submitRegistration}>
@@ -407,7 +407,7 @@ function App() {
                 <label>Account type<select value={registration.accountType} onChange={(event) => setRegistration({ ...registration, accountType: event.target.value })}><option value="supplier">Supplier</option><option value="referrer">Lacoste contact</option></select></label>
                 {registration.accountType === "supplier" ? (
                   <>
-                    <label>Company name<input autoComplete="organization" maxLength={150} value={registration.company} onChange={(event) => setRegistration({ ...registration, company: event.target.value })} required /></label>
+                    <label>Supplier / company name<input autoComplete="organization" maxLength={150} value={registration.company} onChange={(event) => setRegistration({ ...registration, company: event.target.value })} required /></label>
                     <label>International phone number<input type="tel" autoComplete="tel" placeholder="+33 6 12 34 56 78" maxLength={30} value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} required /></label>
                   </>
                 ) : (
