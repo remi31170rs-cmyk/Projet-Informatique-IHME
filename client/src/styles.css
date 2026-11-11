@@ -114,7 +114,9 @@ button { cursor: pointer; }
 .table-row:last-child { border: 0; }
 .table-cell { min-width: 0; overflow-wrap: anywhere; }
 .table-cell > input, .table-cell > select { width: 100%; }
-.table-heading { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.table-heading { position: relative; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 12px; text-align: center; }
+.table-heading > span { text-align: center; }
+.table-heading > .column-filter { position: absolute; right: 0; }
 .column-filter { position: relative; flex: 0 0 auto; color: #89948b; }
 .column-filter summary { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 3px; cursor: pointer; list-style: none; }
 .column-filter summary::-webkit-details-marker { display: none; }

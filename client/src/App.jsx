@@ -17,16 +17,6 @@ import {
   Users,
 } from "lucide-react";
 
-const emptyFollowup = {
-  dateDemande: "",
-  disponible: "",
-  dateDisponibilite: "",
-  dateEnvoi: "",
-  dateReception: "",
-  renvoye: "NO",
-  dateRenvoi: "",
-};
-
 async function api(path, token, options = {}) {
   const apiPath = path.startsWith("/api/")
     ? `${import.meta.env.BASE_URL}${path.slice(1)}`
@@ -73,8 +63,6 @@ function App() {
   const [activeView, setActiveView] = useState("suivi");
   const [sampleFilters, setSampleFilters] = useState({});
   const [historyFilters, setHistoryFilters] = useState({});
-  const [selectedId, setSelectedId] = useState("");
-  const [followup, setFollowup] = useState(emptyFollowup);
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [registration, setRegistration] = useState({
     email: "",
@@ -119,9 +107,6 @@ function App() {
       setSuppliers(supplierRows);
       setHistorySamples(historyRows);
     }
-    setSelectedId((current) => sampleRows.some((sample) => String(sample.id) === current)
-      ? current
-      : String(sampleRows[0]?.id || ""));
   }
 
   useEffect(() => {
@@ -145,20 +130,30 @@ function App() {
     return () => { cancelled = true; };
   }, [token]);
 
-  const selectedSample = samples.find((sample) => String(sample.id) === selectedId);
-
   useEffect(() => {
-    if (!selectedSample || user?.role !== "supplier") return;
-    setFollowup({
-      dateDemande: selectedSample.dateDemande || "",
-      disponible: selectedSample.disponible || "",
-      dateDisponibilite: selectedSample.dateDisponibilite || "",
-      dateEnvoi: selectedSample.dateEnvoi || "",
-      dateReception: selectedSample.dateReception || "",
-      renvoye: selectedSample.renvoye || "NO",
-      dateRenvoi: selectedSample.dateRenvoi || "",
-    });
-  }, [selectedId, selectedSample, user?.role]);
+    if (!token) return;
+    let cancelled = false;
+    const refreshSamples = async () => {
+      try {
+        const { samples: sampleRows } = await api("/api/samples", token);
+        if (cancelled) return;
+        setSamples((current) => {
+          const currentById = new Map(current.map((sample) => [sample.id, sample]));
+          return sampleRows.map((sample) => {
+            const existing = currentById.get(sample.id);
+            return existing?.updatedAt === sample.updatedAt ? existing : sample;
+          });
+        });
+      } catch {
+        // Keep the last known rows visible if a background refresh fails.
+      }
+    };
+    const intervalId = window.setInterval(refreshSamples, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [token]);
 
   async function submitLogin(event) {
     event.preventDefault();
@@ -254,7 +249,6 @@ function App() {
     setSamples([]);
     setHistorySamples([]);
     setSuppliers([]);
-    setSelectedId("");
     setActiveView("suivi");
     setMessage(null);
   }
@@ -310,15 +304,13 @@ function App() {
     }
   }
 
-  async function saveFollowup(event) {
-    event.preventDefault();
-    if (!selectedSample) return;
+  async function saveSupplierSample(sampleId, changes) {
     setBusy(true);
     setMessage(null);
     try {
-      const result = await api(`/api/samples/${selectedSample.id}`, token, {
+      const result = await api(`/api/samples/${sampleId}`, token, {
         method: "PATCH",
-        body: JSON.stringify(followup),
+        body: JSON.stringify(changes),
       });
       setSamples((current) => current.map((sample) => sample.id === result.sample.id ? { ...sample, ...result.sample } : sample));
       setMessage({ type: "success", text: "Tracking details saved." });
@@ -561,7 +553,7 @@ function App() {
             </>
           )
         ) : (
-          <SupplierWorkspace samples={samples} selectedId={selectedId} setSelectedId={setSelectedId} selectedSample={selectedSample} followup={followup} setFollowup={setFollowup} saveFollowup={saveFollowup} busy={busy} />
+          <SupplierWorkspace samples={samples} supplierLabel={`${user.company || "Supplier"} — ${user.email}`} filters={sampleFilters} setFilters={setSampleFilters} onSave={saveSupplierSample} busy={busy} />
         )}
         <footer className="page-footer"><span>Sample Desk · Supplier tracking</span><span><CircleHelp size={14} /> Changes are saved to the shared database.</span></footer>
       </main>
@@ -593,7 +585,7 @@ function filterValue(sample, key) {
   }
 }
 
-function SampleTable({ rows, suppliers, history = false, filters, setFilters, onSave, onAutoSave, onDelete, busy = false }) {
+function SampleTable({ rows, suppliers = [], history = false, supplierMode = false, supplierLabel, filters, setFilters, onSave, onSupplierSave, onAutoSave, onDelete, busy = false }) {
   const columns = history ? [...tableColumns, { key: "archive", label: "ARCHIVED ON" }] : tableColumns;
   const options = Object.fromEntries(columns.map(({ key }) => [
     key,
@@ -623,7 +615,6 @@ function SampleTable({ rows, suppliers, history = false, filters, setFilters, on
             />
           </div>
         ))}
-        {!history && <span className="row-actions-heading">ACTIONS</span>}
       </div>
       {visibleRows.length === 0 ? (
         <div className="table-empty">No references match the selected filters.</div>
@@ -638,6 +629,8 @@ function SampleTable({ rows, suppliers, history = false, filters, setFilters, on
           <div className="table-cell status-detail" data-label="Returned"><Status value={sample.renvoye} />{sample.dateRenvoi && <small>{dateLabel(sample.dateRenvoi)}</small>}</div>
           <div className="table-cell" data-label="Archived on">{filterValue(sample, "archive")}</div>
         </div>
+      ) : supplierMode ? (
+        <SupplierSampleRow key={sample.id} sample={sample} supplierLabel={supplierLabel} onSave={onSupplierSave} busy={busy} />
       ) : (
         <ManagerSampleRow key={sample.id} sample={sample} suppliers={suppliers} onSave={onSave} onAutoSave={onAutoSave} onDelete={onDelete} busy={busy} />
       ))}
@@ -689,6 +682,10 @@ function createManagerSampleDraft(sample) {
 
 function ManagerSampleRow({ sample, suppliers, onSave, onAutoSave, onDelete, busy }) {
   const [draft, setDraft] = useState(() => createManagerSampleDraft(sample));
+
+  useEffect(() => {
+    setDraft(createManagerSampleDraft(sample));
+  }, [sample.updatedAt]);
 
   function update(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -817,38 +814,61 @@ function SupplierDirectory({ suppliers, newSupplier, setNewSupplier, editingSupp
   );
 }
 
-function SupplierWorkspace({ samples, selectedId, setSelectedId, selectedSample, followup, setFollowup, saveFollowup, busy }) {
+function SupplierSampleRow({ sample, supplierLabel, onSave, busy }) {
+  const [draft, setDraft] = useState(() => createManagerSampleDraft(sample));
+
+  useEffect(() => {
+    setDraft(createManagerSampleDraft(sample));
+  }, [sample.updatedAt]);
+
+  function submit(event) {
+    event.preventDefault();
+    onSave(sample.id, {
+      dateDemande: draft.dateDemande,
+      disponible: draft.disponible,
+      dateDisponibilite: draft.dateDisponibilite,
+      dateEnvoi: draft.dateEnvoi,
+      dateReception: draft.dateReception,
+      renvoye: draft.renvoye,
+      dateRenvoi: draft.dateRenvoi,
+    });
+  }
+
+  return (
+    <form className="table-row editable-row" onSubmit={submit}>
+      <div className="table-cell" data-label="Reference"><strong className="ref-cell">{sample.reference}</strong></div>
+      <div className="table-cell" data-label="Supplier">{supplierLabel}</div>
+      <div className="table-cell" data-label="Requested"><input aria-label={`Request date for ${sample.reference}`} type="date" value={draft.dateDemande || ""} onChange={(event) => setDraft({ ...draft, dateDemande: event.target.value })} disabled={busy} /></div>
+      <div className="table-cell row-control-group" data-label="Availability">
+        <select aria-label={`Availability for ${sample.reference}`} value={draft.disponible || ""} onChange={(event) => setDraft({ ...draft, disponible: event.target.value })} disabled={busy}>
+          <option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option>
+        </select>
+        <input aria-label={`Expected availability date for ${sample.reference}`} type="date" value={draft.dateDisponibilite || ""} onChange={(event) => setDraft({ ...draft, dateDisponibilite: event.target.value })} disabled={busy} />
+      </div>
+      <div className="table-cell" data-label="Sent"><input aria-label={`Shipment date for ${sample.reference}`} type="date" value={draft.dateEnvoi || ""} onChange={(event) => setDraft({ ...draft, dateEnvoi: event.target.value })} disabled={busy} /></div>
+      <div className="table-cell" data-label="Received"><input aria-label={`Receipt date for ${sample.reference}`} type="date" value={draft.dateReception || ""} onChange={(event) => setDraft({ ...draft, dateReception: event.target.value })} disabled={busy} /></div>
+      <div className="table-cell row-control-group" data-label="Returned">
+        <select aria-label={`Return status for ${sample.reference}`} value={draft.renvoye || "NO"} onChange={(event) => setDraft({ ...draft, renvoye: event.target.value })} disabled={busy}>
+          <option value="NO">NO</option><option value="YES">YES</option>
+        </select>
+        <input aria-label={`Return date for ${sample.reference}`} type="date" value={draft.dateRenvoi || ""} onChange={(event) => setDraft({ ...draft, dateRenvoi: event.target.value })} disabled={busy} />
+      </div>
+      <div className="table-cell row-actions" data-label="Actions">
+        <button className="icon-button save-icon" type="submit" aria-label={`Save ${sample.reference}`} title="Save" disabled={busy}><Save size={15} /></button>
+      </div>
+    </form>
+  );
+}
+
+function SupplierWorkspace({ samples, supplierLabel, filters, setFilters, onSave, busy }) {
   return (
     <section className="supplier-workspace">
       <div className="section-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h2>My samples</h2></div><span className="result-count">{samples.length} reference{samples.length === 1 ? "" : "s"}</span></div>
       {samples.length === 0 ? <EmptyState text="No samples have been assigned to you yet. Please contact your manager." /> : (
-        <div className="supplier-grid">
-          <div className="supplier-list">
-            {samples.map((sample) => <button key={sample.id} className={`supplier-sample ${String(sample.id) === selectedId ? "selected" : ""}`} onClick={() => setSelectedId(String(sample.id))}>
-              <span className="sample-icon"><Boxes size={17} /></span><span className="sample-copy"><strong>{sample.reference}</strong><small>{sample.dateDemande ? `Requested · ${dateLabel(sample.dateDemande)}` : "Details to be completed"}</small></span><span className="sample-arrow">›</span>
-            </button>)}
-          </div>
-          {selectedSample && <form className="form-panel followup-panel" onSubmit={saveFollowup}>
-            <div className="followup-heading"><div><p className="eyebrow">SAMPLE DETAILS</p><h2>{selectedSample.reference}</h2></div><span className="status-tag">{selectedSample.dateReception ? "Received" : "In progress"}</span></div>
-            <div className="field-grid">
-              <DateField label="Sample request date" value={followup.dateDemande} onChange={(value) => setFollowup({ ...followup, dateDemande: value })} />
-              <label className="form-field">Availability<select value={followup.disponible} onChange={(event) => setFollowup({ ...followup, disponible: event.target.value })}><option value="">Not set</option><option value="YES">YES</option><option value="NO">NO</option></select></label>
-              <DateField label="Expected availability date" value={followup.dateDisponibilite} onChange={(value) => setFollowup({ ...followup, dateDisponibilite: value })} />
-              <DateField label="Sample shipment date" value={followup.dateEnvoi} onChange={(value) => setFollowup({ ...followup, dateEnvoi: value })} />
-              <DateField label="Sample receipt date" value={followup.dateReception} onChange={(value) => setFollowup({ ...followup, dateReception: value })} />
-              <label className="form-field">Has the sample been returned?<select value={followup.renvoye} onChange={(event) => setFollowup({ ...followup, renvoye: event.target.value })}><option value="NO">NO</option><option value="YES">YES</option></select></label>
-              <DateField label="Return date" value={followup.dateRenvoi} onChange={(value) => setFollowup({ ...followup, dateRenvoi: value })} />
-            </div>
-            <div className="save-row"><span><ShieldCheck size={15} /> Your updates are shared with the manager</span><button className="button button-dark" disabled={busy}><Save size={16} /> {busy ? "Saving…" : "Save updates"}</button></div>
-          </form>}
-        </div>
+        <SampleTable rows={samples} supplierMode supplierLabel={supplierLabel} filters={filters} setFilters={setFilters} onSupplierSave={onSave} busy={busy} />
       )}
     </section>
   );
-}
-
-function DateField({ label, value, onChange, required = false }) {
-  return <label className="form-field">{label}<input type="date" value={value || ""} onChange={(event) => onChange(event.target.value)} required={required} /></label>;
 }
 
 function Summary({ icon, label, value, tone }) {

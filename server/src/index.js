@@ -744,13 +744,20 @@ app.patch("/api/samples/:id", requireAuth, requireRole("supplier"), async (reque
     for (const [key, column] of Object.entries(sampleFields)) {
       if (key in body) values[column] = key === "renvoye" ? body[key] === "YES" : (body[key] || null);
     }
-    const result = await pool.query(
+    const updated = await pool.query(
       `UPDATE samples SET date_demande = $1, disponible = $2, date_disponibilite = $3,
          date_envoi = $4, date_reception = $5, renvoye = $6, date_renvoi = $7, updated_at = NOW()
        WHERE id = $8 AND supplier_id = $9 AND deleted_at IS NULL RETURNING *`,
       [values.date_demande, values.disponible, values.date_disponibilite,
        values.date_envoi, values.date_reception, values.renvoye,
        values.date_renvoi, id, request.user.sub]
+    );
+    if (!updated.rowCount) return response.status(404).json({ error: "Sample not found." });
+    const result = await pool.query(
+      `SELECT s.*, u.email AS supplier_email
+       FROM samples s LEFT JOIN users u ON u.id = s.supplier_id
+       WHERE s.id = $1`,
+      [id]
     );
     return response.json({ sample: presentSample(result.rows[0]) });
   } catch (error) {
